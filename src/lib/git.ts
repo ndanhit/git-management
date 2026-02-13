@@ -130,7 +130,7 @@ export async function getRepoDetails(repoPath: string): Promise<RepoDetails | nu
     }
 }
 
-export type GitAction = 'fetch' | 'pull' | 'push' | 'commit' | 'stage' | 'unstage';
+export type GitAction = 'fetch' | 'pull' | 'push' | 'commit' | 'stage' | 'unstage' | 'discard';
 
 export async function runGitAction(repoPath: string, action: GitAction, args?: any): Promise<{ success: boolean; message?: string }> {
     if (!fs.existsSync(repoPath)) return { success: false, message: 'Repo not found' };
@@ -160,9 +160,27 @@ export async function runGitAction(repoPath: string, action: GitAction, args?: a
                 break;
             case 'unstage':
                 if (args?.files && Array.isArray(args.files)) {
-                    await git.reset(['HEAD', ...args.files]);
+                    // Use reset for specific files
+                    await git.raw(['reset', 'HEAD', '--', ...args.files]);
                 } else {
                     await git.reset(['HEAD']);
+                }
+                break;
+            case 'discard':
+                if (args?.files && Array.isArray(args.files)) {
+                    for (const file of args.files) {
+                        const fullPath = path.join(repoPath, file);
+                        try {
+                            // Try checkout first (for tracked files)
+                            await git.checkout(['--', file]);
+                        } catch (e) {
+                            // If checkout fails, it might be an untracked file
+                            // Let's check status to be sure OR just try to delete if it exists
+                            if (fs.existsSync(fullPath)) {
+                                fs.unlinkSync(fullPath);
+                            }
+                        }
+                    }
                 }
                 break;
             default:
@@ -172,5 +190,55 @@ export async function runGitAction(repoPath: string, action: GitAction, args?: a
     } catch (e: any) {
         console.error('Git action error:', e);
         return { success: false, message: e.message || 'Unknown error' };
+    }
+}
+
+export async function getFileDiff(repoPath: string, filePath: string): Promise<string> {
+    if (!fs.existsSync(repoPath)) return '';
+
+    try {
+        const git: SimpleGit = simpleGit(repoPath);
+        // We want to see diff including untracked files
+        // Try to get diff against HEAD (tracked files)
+        try {
+            const diff = await git.diff(['HEAD', filePath]);
+            if (diff) return diff;
+        } catch (e) {
+            // Might be untracked
+        }
+
+        // Try diff just for unstaged changes
+        const currentDiff = await git.diff([filePath]);
+        if (currentDiff) return currentDiff;
+
+        // If file is untracked, show its content as additions
+        const fullPath = path.join(repoPath, filePath);
+        if (fs.existsSync(fullPath)) {
+            const content = fs.readFileSync(fullPath, 'utf-8');
+            return content.split('\n').map(line => `+ ${line}`).join('\n');
+        }
+
+        return 'No changes or file not found.';
+    } catch (e) {
+        console.error('Error getting file diff:', e);
+        return 'Failed to get diff.';
+    }
+}
+
+export async function getFileHistory(repoPath: string, filePath: string): Promise<any[]> {
+    if (!fs.existsSync(repoPath)) return [];
+
+    try {
+        const git: SimpleGit = simpleGit(repoPath);
+        const log = await git.log({ file: filePath, maxCount: 20 });
+        return log.all.map(c => ({
+            hash: c.hash.substring(0, 7),
+            message: c.message,
+            date: c.date,
+            author_name: c.author_name
+        }));
+    } catch (e) {
+        console.error('Error getting file history:', e);
+        return [];
     }
 }
