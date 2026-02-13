@@ -30,7 +30,7 @@ function start_app() {
     (sleep 2 && open http://localhost:$PORT) &
 
     # Run server
-    npm start
+    npm start -- -p $PORT
 }
 
 function stop_app() {
