@@ -29,8 +29,10 @@ function start_app() {
     # Open browser after delay
     (sleep 2 && open http://localhost:$PORT) &
 
-    # Run server
-    npm start -- -p $PORT
+    # Run server in background
+    nohup npm start -- -p $PORT > app.log 2>&1 &
+    echo "App started in background. PID: $!"
+    echo "Logs are being written to app.log"
 }
 
 function stop_app() {
