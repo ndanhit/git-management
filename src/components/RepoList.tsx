@@ -5,13 +5,15 @@ import { RepoInfo } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { FolderGit2, GitBranch, AlertCircle, CheckCircle, ArrowUpCircle, ArrowDownCircle, ChevronRight, ChevronDown } from 'lucide-react';
+import { FolderGit2, GitBranch, AlertCircle, CheckCircle, ArrowUpCircle, ArrowDownCircle, ChevronRight, ChevronDown, Star } from 'lucide-react';
 
 interface RepoListProps {
     repos: RepoInfo[];
     selectedRepo: RepoInfo | null;
     onSelect: (repo: RepoInfo) => void;
     rootPath: string;
+    starredRepoPaths: string[];
+    onToggleStar: (path: string) => void;
 }
 
 const statusMap: Record<RepoInfo['status'], { icon: any, color: string }> = {
@@ -23,7 +25,7 @@ const statusMap: Record<RepoInfo['status'], { icon: any, color: string }> = {
     unknown: { icon: AlertCircle, color: 'text-gray-500' },
 };
 
-export function RepoList({ repos, selectedRepo, onSelect, rootPath }: RepoListProps) {
+export function RepoList({ repos, selectedRepo, onSelect, rootPath, starredRepoPaths, onToggleStar }: RepoListProps) {
     const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
     const toggleGroup = (group: string) => {
@@ -32,6 +34,12 @@ export function RepoList({ repos, selectedRepo, onSelect, rootPath }: RepoListPr
 
     const groupedRepos = useMemo(() => {
         const groups: Record<string, RepoInfo[]> = {};
+
+        // Add Starred group first if any
+        const starred = repos.filter(r => starredRepoPaths.includes(r.path));
+        if (starred.length > 0) {
+            groups['Starred'] = starred;
+        }
 
         repos.forEach(repo => {
             // Simple relative path logic
@@ -53,13 +61,15 @@ export function RepoList({ repos, selectedRepo, onSelect, rootPath }: RepoListPr
         });
 
         return groups;
-    }, [repos, rootPath]);
+    }, [repos, rootPath, starredRepoPaths]);
 
     if (repos.length === 0) {
         return <div className="p-4 text-sm text-muted-foreground text-center">No repositories found.</div>;
     }
 
     const groups = Object.keys(groupedRepos).sort((a, b) => {
+        if (a === 'Starred') return -1;
+        if (b === 'Starred') return 1;
         if (a === 'Root') return -1;
         if (b === 'Root') return 1;
         return a.localeCompare(b);
@@ -72,8 +82,17 @@ export function RepoList({ repos, selectedRepo, onSelect, rootPath }: RepoListPr
                     const groupRepos = groupedRepos[group];
                     const isCollapsed = collapsedGroups[group];
 
-                    if (group === 'Root') {
-                        return groupRepos.map(repo => <RepoItem key={repo.path} repo={repo} selectedRepo={selectedRepo} onSelect={onSelect} />);
+                    if (group === 'Root' || group === 'Starred') {
+                        return groupRepos.map(repo => (
+                            <RepoItem
+                                key={`${group}-${repo.path}`}
+                                repo={repo}
+                                selectedRepo={selectedRepo}
+                                onSelect={onSelect}
+                                isStarred={starredRepoPaths.includes(repo.path)}
+                                onToggleStar={() => onToggleStar(repo.path)}
+                            />
+                        ));
                     }
 
                     return (
@@ -90,7 +109,16 @@ export function RepoList({ repos, selectedRepo, onSelect, rootPath }: RepoListPr
 
                             {!isCollapsed && (
                                 <div className="pl-4 flex flex-col gap-1 border-l ml-3 mb-2">
-                                    {groupRepos.map(repo => <RepoItem key={repo.path} repo={repo} selectedRepo={selectedRepo} onSelect={onSelect} />)}
+                                    {groupRepos.map(repo => (
+                                        <RepoItem
+                                            key={repo.path}
+                                            repo={repo}
+                                            selectedRepo={selectedRepo}
+                                            onSelect={onSelect}
+                                            isStarred={starredRepoPaths.includes(repo.path)}
+                                            onToggleStar={() => onToggleStar(repo.path)}
+                                        />
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -101,26 +129,48 @@ export function RepoList({ repos, selectedRepo, onSelect, rootPath }: RepoListPr
     );
 }
 
-function RepoItem({ repo, selectedRepo, onSelect }: { repo: RepoInfo, selectedRepo: RepoInfo | null, onSelect: (repo: RepoInfo) => void }) {
+function RepoItem({ repo, selectedRepo, onSelect, isStarred, onToggleStar }: {
+    repo: RepoInfo,
+    selectedRepo: RepoInfo | null,
+    onSelect: (repo: RepoInfo) => void,
+    isStarred: boolean,
+    onToggleStar: () => void
+}) {
     const StatusIcon = statusMap[repo.status]?.icon || AlertCircle;
     const statusColor = statusMap[repo.status]?.color || 'text-gray-500';
 
     return (
-        <Button
-            variant={selectedRepo?.path === repo.path ? "secondary" : "ghost"}
-            className={cn("justify-start h-auto py-2 px-3", selectedRepo?.path === repo.path && "bg-secondary")}
-            onClick={() => onSelect(repo)}
-        >
-            <div className="flex items-center w-full min-w-0">
-                <StatusIcon className={cn("w-4 h-4 mr-3 shrink-0", statusColor)} />
-                <div className="flex flex-col items-start overflow-hidden min-w-0">
-                    <span className="text-sm font-medium truncate w-full text-left">{repo.name}</span>
-                    <div className="flex items-center text-xs text-muted-foreground mt-0.5 w-full">
-                        <GitBranch className="w-3 h-3 mr-1 shrink-0" />
-                        <span className="truncate">{repo.branch || '...'}</span>
+        <div className="group relative flex items-center">
+            <Button
+                variant={selectedRepo?.path === repo.path ? "secondary" : "ghost"}
+                className={cn("justify-start h-auto py-2 pl-3 pr-8 w-full", selectedRepo?.path === repo.path && "bg-secondary")}
+                onClick={() => onSelect(repo)}
+            >
+                <div className="flex items-center w-full min-w-0">
+                    <StatusIcon className={cn("w-4 h-4 mr-3 shrink-0", statusColor)} />
+                    <div className="flex flex-col items-start overflow-hidden min-w-0">
+                        <span className="text-sm font-medium truncate w-full text-left">{repo.name}</span>
+                        <div className="flex items-center text-xs text-muted-foreground mt-0.5 w-full">
+                            <GitBranch className="w-3 h-3 mr-1 shrink-0" />
+                            <span className="truncate">{repo.branch || '...'}</span>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </Button>
+            </Button>
+            <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                    "absolute right-1 h-7 w-7 transition-opacity",
+                    isStarred ? "text-yellow-500 opacity-100" : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                )}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleStar();
+                }}
+            >
+                <Star className={cn("w-3.5 h-3.5", isStarred && "fill-current")} />
+            </Button>
+        </div>
     );
 }

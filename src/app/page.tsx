@@ -20,6 +20,7 @@ export default function Home() {
   // Initial state true to prevent flashing landing page if path is saved
   const [initializing, setInitializing] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [starredRepoPaths, setStarredRepoPaths] = useState<string[]>([]);
 
 
   useEffect(() => {
@@ -29,6 +30,11 @@ export default function Home() {
       fetchRepos(savedPath);
     } else {
       setInitializing(false);
+    }
+
+    const savedStars = localStorage.getItem('starred-repos');
+    if (savedStars) {
+      setStarredRepoPaths(JSON.parse(savedStars));
     }
   }, []);
 
@@ -51,6 +57,14 @@ export default function Home() {
       setLoading(false);
       setInitializing(false);
     }
+  };
+
+  const toggleStar = (path: string) => {
+    setStarredRepoPaths(prev => {
+      const next = prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path];
+      localStorage.setItem('starred-repos', JSON.stringify(next));
+      return next;
+    });
   };
 
   const handlePathSubmit = (e: React.FormEvent) => {
@@ -129,7 +143,14 @@ export default function Home() {
           {loading ? (
             <div className="p-4 text-sm text-muted-foreground text-center">Scanning...</div>
           ) : (
-            <RepoList repos={repos} selectedRepo={selectedRepo} onSelect={setSelectedRepo} rootPath={rootPath} />
+            <RepoList
+              repos={repos}
+              selectedRepo={selectedRepo}
+              onSelect={setSelectedRepo}
+              rootPath={rootPath}
+              starredRepoPaths={starredRepoPaths}
+              onToggleStar={toggleStar}
+            />
           )}
         </div>
       </div>
