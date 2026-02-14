@@ -30,11 +30,23 @@ export async function findRepos(rootPath: string): Promise<RepoInfo[]> {
                     else if (status.ahead > 0) repoStatus = 'ahead';
                     else if (status.behind > 0) repoStatus = 'behind';
 
+                    let remoteUrl: string | undefined;
+                    try {
+                        const remotes = await git.getRemotes(true);
+                        const origin = remotes.find(r => r.name === 'origin') || remotes[0];
+                        if (origin) {
+                            remoteUrl = origin.refs.fetch || origin.refs.push;
+                        }
+                    } catch (e) {
+                        // Ignore remote fetch errors
+                    }
+
                     repos.push({
                         name: path.basename(currentPath),
                         path: currentPath,
                         branch: branch.trim(),
                         status: repoStatus,
+                        remoteUrl,
                     });
                     // If it's a git repo, stop recursing down this branch
                     return;
@@ -116,11 +128,23 @@ export async function getRepoDetails(repoPath: string): Promise<RepoDetails | nu
         else if (status.ahead > 0) repoStatus = 'ahead';
         else if (status.behind > 0) repoStatus = 'behind';
 
+        let remoteUrl: string | undefined;
+        try {
+            const remotes = await git.getRemotes(true);
+            const origin = remotes.find(r => r.name === 'origin') || remotes[0];
+            if (origin) {
+                remoteUrl = origin.refs.fetch || origin.refs.push;
+            }
+        } catch (e) {
+            // Ignore
+        }
+
         return {
             name: path.basename(repoPath),
             path: repoPath,
             branch: branch.trim(),
             status: repoStatus,
+            remoteUrl,
             files,
             recentCommits
         };

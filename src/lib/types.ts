@@ -3,6 +3,7 @@ export interface RepoInfo {
     path: string;
     branch: string;
     status: 'clean' | 'dirty' | 'ahead' | 'behind' | 'diverged' | 'unknown';
+    remoteUrl?: string;
 }
 
 export interface FileStatus {

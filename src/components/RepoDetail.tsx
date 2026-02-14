@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { GitBranch, GitCommit, FileText, CheckCircle, AlertCircle, RefreshCw, Folder, Terminal, Plus, Minus, RotateCcw, History, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getWebUrlFromGit, cn } from '@/lib/utils';
 
 interface RepoDetailProps {
     repo: RepoInfo;
@@ -152,7 +153,7 @@ export function RepoDetail({ repo }: RepoDetailProps) {
                     <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
                         {details.name}
                         <Badge variant={details.status === 'clean' ? 'outline' : 'destructive'}>{details.status}</Badge>
-                        <Button variant="ghost" size="icon" onClick={fetchDetails} disabled={refreshing} title="Refresh Status">
+                        <Button variant="ghost" size="icon" onClick={() => fetchDetails()} disabled={refreshing} title="Refresh Status">
                             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleAction('open-folder')} title="Open in File Explorer">
@@ -164,7 +165,20 @@ export function RepoDetail({ repo }: RepoDetailProps) {
                     </h2>
                     <div className="flex items-center text-muted-foreground mt-2">
                         <GitBranch className="w-4 h-4 mr-2" />
-                        {details.branch}
+                        <span
+                            className={cn(
+                                "hover:text-primary transition-colors cursor-pointer",
+                                details.remoteUrl && "hover:underline"
+                            )}
+                            onClick={() => {
+                                if (details.remoteUrl) {
+                                    window.open(getWebUrlFromGit(details.remoteUrl, details.branch), '_blank');
+                                }
+                            }}
+                            title={details.remoteUrl ? "Open branch on remote" : ""}
+                        >
+                            {details.branch}
+                        </span>
                         <span className="mx-2">•</span>
                         <span className="text-xs font-mono opacity-70">{details.path}</span>
                     </div>

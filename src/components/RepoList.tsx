@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { FolderGit2, GitBranch, AlertCircle, CheckCircle, ArrowUpCircle, ArrowDownCircle, ChevronRight, ChevronDown, Star } from 'lucide-react';
+import { getWebUrlFromGit } from '@/lib/utils';
 
 interface RepoListProps {
     repos: RepoInfo[];
@@ -152,25 +153,42 @@ function RepoItem({ repo, selectedRepo, onSelect, isStarred, onToggleStar }: {
                         <span className="text-sm font-medium truncate w-full text-left">{repo.name}</span>
                         <div className="flex items-center text-xs text-muted-foreground mt-0.5 w-full">
                             <GitBranch className="w-3 h-3 mr-1 shrink-0" />
-                            <span className="truncate">{repo.branch || '...'}</span>
+                            <span
+                                className={cn(
+                                    "truncate hover:text-primary transition-colors cursor-pointer",
+                                    repo.remoteUrl && "hover:underline"
+                                )}
+                                onClick={(e) => {
+                                    if (repo.remoteUrl) {
+                                        e.stopPropagation();
+                                        window.open(getWebUrlFromGit(repo.remoteUrl, repo.branch), '_blank');
+                                    }
+                                }}
+                                title={repo.remoteUrl ? "Open branch on remote" : ""}
+                            >
+                                {repo.branch || '...'}
+                            </span>
                         </div>
                     </div>
                 </div>
             </Button>
-            <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                    "absolute right-1 h-7 w-7 transition-opacity",
-                    isStarred ? "text-yellow-500 opacity-100" : "text-muted-foreground opacity-0 group-hover:opacity-100"
-                )}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleStar();
-                }}
-            >
-                <Star className={cn("w-3.5 h-3.5", isStarred && "fill-current")} />
-            </Button>
+            <div className="absolute right-1 flex items-center gap-0.5">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                        "h-7 w-7 transition-opacity",
+                        isStarred ? "text-yellow-500 opacity-100" : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                    )}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleStar();
+                    }}
+                    title={isStarred ? "Unstar" : "Star"}
+                >
+                    <Star className={cn("w-3.5 h-3.5", isStarred && "fill-current")} />
+                </Button>
+            </div>
         </div>
     );
 }
